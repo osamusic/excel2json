@@ -1,4 +1,4 @@
-# Excel2JSON - Cyberpunk Excel Viewer
+# CyberSheet X - Neural Data Matrix
 
 A cyberpunk-themed Excel file viewer and converter built with React, TypeScript, and Vite. Upload Excel files, search and filter data with a terminal-style interface, and export to JSON or Excel formats.
 

@@ -45,22 +45,48 @@ const ExcelViewer: React.FC = () => {
         console.log('Loaded files from localStorage:', parsedFiles);
         setFiles(parsedFiles);
         
-        // 最初のファイルを自動選択
-        if (parsedFiles.length > 0 && !selectedFile) {
-          const firstFile = parsedFiles[0];
-          setSelectedFile(firstFile.id);
-          const firstSheet = Object.keys(firstFile.sheets)[0];
-          if (firstSheet) {
-            setSelectedSheet(firstSheet);
+        // 保存された選択状態を復元、なければ最初のファイルを自動選択
+        const savedSelection = localStorage.getItem('excel2json-selection');
+        let selectionToRestore = null;
+        
+        if (savedSelection) {
+          try {
+            selectionToRestore = JSON.parse(savedSelection);
+            console.log('Found saved selection:', selectionToRestore);
+          } catch (e) {
+            console.error('Error parsing saved selection:', e);
           }
         }
+        
+        // 次のレンダリングサイクルで選択を設定
+        setTimeout(() => {
+          if (selectionToRestore && 
+              parsedFiles.some((f: ProcessedFile) => f.id === selectionToRestore.selectedFile)) {
+            // 保存された選択を復元
+            const file = parsedFiles.find((f: ProcessedFile) => f.id === selectionToRestore.selectedFile);
+            if (file && file.sheets[selectionToRestore.selectedSheet]) {
+              setSelectedFile(selectionToRestore.selectedFile);
+              setSelectedSheet(selectionToRestore.selectedSheet);
+              console.log('Restored saved selection:', selectionToRestore);
+            }
+          } else if (parsedFiles.length > 0) {
+            // 保存された選択がない場合は最初のファイルを選択
+            const firstFile = parsedFiles[0];
+            const firstSheet = Object.keys(firstFile.sheets)[0];
+            setSelectedFile(firstFile.id);
+            if (firstSheet) {
+              setSelectedSheet(firstSheet);
+            }
+            console.log('Auto-selected first file and sheet:', firstFile.id, firstSheet);
+          }
+        }, 0);
       }
     } catch (error) {
       console.error('Error loading files from localStorage:', error);
       // 破損したデータをクリア
       localStorage.removeItem('excel2json-files');
     }
-  }, []); // Remove selectedFile from dependency array to prevent infinite loop
+  }, []); // Only run once on mount
 
   // Save files to localStorage whenever they change
   useEffect(() => {
@@ -78,6 +104,15 @@ const ExcelViewer: React.FC = () => {
       alert('データ保存に失敗しました。ファイルサイズが大きすぎる可能性があります。');
     }
   }, [files]);
+
+  // Save current selection to localStorage
+  useEffect(() => {
+    if (selectedFile && selectedSheet) {
+      const selection = { selectedFile, selectedSheet };
+      localStorage.setItem('excel2json-selection', JSON.stringify(selection));
+      console.log('Saved selection:', selection);
+    }
+  }, [selectedFile, selectedSheet]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -670,7 +705,7 @@ const ExcelViewer: React.FC = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 cyber-text text-xl">
               <FileSpreadsheet className="w-6 h-6 cyber-glow" />
-              Excel2JSON
+              CyberSheet X
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -807,7 +842,8 @@ const ExcelViewer: React.FC = () => {
                     setSelectedFile('');
                     setSelectedSheet('');
                     localStorage.removeItem('excel2json-files');
-                    console.log('All files cleared from memory and localStorage');
+                    localStorage.removeItem('excel2json-selection');
+                    console.log('All files and selection cleared from memory and localStorage');
                   }}
                   className="cyber-clear-button px-3 py-1 rounded text-xs font-mono"
                 >

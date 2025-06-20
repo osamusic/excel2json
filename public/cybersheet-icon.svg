@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Background Circuit -->
+  <rect width="512" height="512" fill="#0a0a0a"/>
+  
+  <!-- Grid Pattern -->
+  <g opacity="0.3">
+    <path d="M64 0v512M128 0v512M192 0v512M256 0v512M320 0v512M384 0v512M448 0v512" stroke="#00ffff" stroke-width="1" opacity="0.5"/>
+    <path d="M0 64h512M0 128h512M0 192h512M0 256h512M0 320h512M0 384h512M0 448h512" stroke="#00ffff" stroke-width="1" opacity="0.5"/>
+  </g>
+  
+  <!-- Main X Shape -->
+  <g filter="url(#glow)">
+    <!-- Left to Right diagonal -->
+    <path d="M80 80 L432 432" stroke="url(#gradient1)" stroke-width="40" stroke-linecap="round"/>
+    <!-- Right to Left diagonal -->
+    <path d="M432 80 L80 432" stroke="url(#gradient2)" stroke-width="40" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Data Matrix Nodes -->
+  <g opacity="0.8">
+    <circle cx="80" cy="80" r="20" fill="#00ffff" filter="url(#glow)"/>
+    <circle cx="432" cy="80" r="20" fill="#ff00ff" filter="url(#glow)"/>
+    <circle cx="80" cy="432" r="20" fill="#ff00ff" filter="url(#glow)"/>
+    <circle cx="432" cy="432" r="20" fill="#00ffff" filter="url(#glow)"/>
+    
+    <!-- Center node -->
+    <circle cx="256" cy="256" r="30" fill="none" stroke="#00ff00" stroke-width="4" filter="url(#glow)"/>
+    <circle cx="256" cy="256" r="15" fill="#00ff00" filter="url(#glow)"/>
+  </g>
+  
+  <!-- Data Streams -->
+  <g opacity="0.6">
+    <path d="M80 80 Q256 150 432 80" stroke="#00ffff" stroke-width="2" fill="none" stroke-dasharray="5,5">
+      <animate attributeName="stroke-dashoffset" values="0;10" dur="2s" repeatCount="indefinite"/>
+    </path>
+    <path d="M80 432 Q256 362 432 432" stroke="#ff00ff" stroke-width="2" fill="none" stroke-dasharray="5,5">
+      <animate attributeName="stroke-dashoffset" values="0;10" dur="2s" repeatCount="indefinite"/>
+    </path>
+  </g>
+  
+  <!-- Hexagon Frame -->
+  <path d="M256 40 L410 136 L410 376 L256 472 L102 376 L102 136 Z" 
+        fill="none" 
+        stroke="#00ffff" 
+        stroke-width="2" 
+        opacity="0.4"
+        stroke-dasharray="10,5">
+    <animate attributeName="stroke-dashoffset" values="0;15" dur="3s" repeatCount="indefinite"/>
+  </path>
+  
+  <!-- Definitions -->
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00ffff;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#ff00ff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00ff00;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="gradient2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff00ff;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#00ff00;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00ffff;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Glow Filter -->
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+</svg>

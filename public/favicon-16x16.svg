@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none">
+  <!-- Background -->
+  <rect width="16" height="16" fill="#0a0a0a"/>
+  
+  <!-- Ultra Simplified X -->
+  <path d="M2 2 L14 14 M14 2 L2 14" stroke="#00ffff" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- Center dot -->
+  <circle cx="8" cy="8" r="1.5" fill="#00ff00"/>
+</svg>

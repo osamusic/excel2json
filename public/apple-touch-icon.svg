@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" fill="none">
+  <!-- Background with rounded corners for iOS -->
+  <rect width="180" height="180" rx="36" fill="#0a0a0a"/>
+  
+  <!-- Grid Pattern -->
+  <g opacity="0.2">
+    <path d="M30 0v180M60 0v180M90 0v180M120 0v180M150 0v180" stroke="#00ffff" stroke-width="0.5"/>
+    <path d="M0 30h180M0 60h180M0 90h180M0 120h180M0 150h180" stroke="#00ffff" stroke-width="0.5"/>
+  </g>
+  
+  <!-- Main X Shape -->
+  <g filter="url(#glowApple)">
+    <path d="M30 30 L150 150" stroke="url(#grad1)" stroke-width="16" stroke-linecap="round"/>
+    <path d="M150 30 L30 150" stroke="url(#grad2)" stroke-width="16" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Nodes -->
+  <circle cx="30" cy="30" r="10" fill="#00ffff" filter="url(#glowApple)"/>
+  <circle cx="150" cy="30" r="10" fill="#ff00ff" filter="url(#glowApple)"/>
+  <circle cx="30" cy="150" r="10" fill="#ff00ff" filter="url(#glowApple)"/>
+  <circle cx="150" cy="150" r="10" fill="#00ffff" filter="url(#glowApple)"/>
+  <circle cx="90" cy="90" r="12" fill="#00ff00" filter="url(#glowApple)"/>
+  
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00ffff" />
+      <stop offset="50%" style="stop-color:#ff00ff" />
+      <stop offset="100%" style="stop-color:#00ff00" />
+    </linearGradient>
+    
+    <linearGradient id="grad2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff00ff" />
+      <stop offset="50%" style="stop-color:#00ff00" />
+      <stop offset="100%" style="stop-color:#00ffff" />
+    </linearGradient>
+    
+    <filter id="glowApple">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+</svg>

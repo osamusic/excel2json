@@ -1,0 +1,17 @@
+{
+  "name": "CyberSheet X - Neural Data Matrix",
+  "short_name": "CyberSheet X",
+  "description": "Neural Data Matrix processor for Excel files with cyberpunk aesthetics",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#00ffff",
+  "background_color": "#0a0a0a",
+  "icons": [
+    {
+      "src": "/cybersheet-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

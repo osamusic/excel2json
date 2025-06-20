@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-CPG-Local is a React-based Excel viewer application that provides a web interface for viewing, searching, filtering, and exporting Excel files. It's a client-side application that runs entirely in the browser with no backend requirements.
+CyberSheet X is a cyberpunk-themed Neural Data Matrix processor built with React. It provides a futuristic interface for viewing, searching, filtering, and exporting Excel files with advanced data normalization capabilities. The application runs entirely client-side with no backend requirements.
 
 ## Technology Stack
 
@@ -13,6 +13,8 @@ CPG-Local is a React-based Excel viewer application that provides a web interfac
 - **Styling**: Tailwind CSS 4.1.10 with custom shadcn/ui-style components
 - **UI Components**: Radix UI primitives with custom implementations
 - **Excel Processing**: ExcelJS 4.4.0 (secure alternative to xlsx) for reading/writing Excel files
+- **Japanese Text Processing**: TinySegmenter for advanced Japanese tokenization
+- **Data Normalization**: Custom Excel normalization service with hierarchical data support
 - **Containerization**: Docker + Docker Compose with nginx for production
 - **Icons**: Lucide React
 - **State Management**: React hooks (no external state management library)
@@ -64,23 +66,27 @@ docker-compose -f docker-compose.dev.yml down --rmi all --volumes --remove-orpha
 - **ExcelViewer.tsx**: Main application component handling file upload, data processing, and all viewer functionality
 - **src/components/ui/**: Reusable UI components (button, card, input) following shadcn/ui patterns
 - **src/lib/utils.ts**: Utility functions including className merging with `cn()` function
+- **src/services/excel-normalizer.ts**: Advanced data normalization service for hierarchical Excel data
 
 ### Key Features Implementation
 - **Multi-file Processing**: Handles multiple Excel files with sheet selection
 - **Search & Filtering**: Full-text search across all data with highlighted results
-- **Tag System**: Auto-generates filterable tags from cell content
+- **Tag System**: Auto-generates filterable tags from cell content with Japanese language support
 - **Data Grouping**: Groups data by selected column (primary key) with collapsible views
 - **Pagination**: 50 items per page for large dataset handling
 - **Export Options**: Excel and JSON export with filtered data
-- **Local Persistence**: Uses localStorage to maintain uploaded files between sessions
+- **Local Persistence**: Uses localStorage to maintain uploaded files and selection state between sessions
+- **Data Normalization**: Automatic column cleaning, hierarchical gap filling, and data quality analysis
+- **Cyberpunk UI**: Neon glow effects, terminal-style interfaces, and matrix-inspired animations
 
 ### Data Flow
 1. File upload via drag-and-drop or file input
-2. XLSX parsing using SheetJS library
-3. Data transformation and tag extraction
-4. Local storage persistence
-5. Real-time filtering, searching, and grouping
-6. Export functionality with processed data
+2. Excel parsing using ExcelJS library
+3. Optional data normalization with hierarchical structure analysis
+4. Data transformation and Japanese-aware tag extraction using TinySegmenter
+5. Local storage persistence with selection state
+6. Real-time filtering, searching, and grouping
+7. Export functionality with processed data
 
 ## Configuration Details
 
@@ -100,9 +106,10 @@ docker-compose -f docker-compose.dev.yml down --rmi all --volumes --remove-orpha
 ## Important Implementation Notes
 
 ### Excel Processing
-- Uses xlsx library for parsing .xlsx and .xls files
+- Uses ExcelJS library for secure parsing of .xlsx and .xls files
 - Supports multiple sheets per workbook
-- Maintains data types and formatting where possible
+- Handles complex cell types (formulas, hyperlinks, rich text)
+- Optional data normalization with quality analysis
 
 ### Performance Considerations
 - Pagination limits rendering to 50 items per page
