@@ -22,7 +22,7 @@ A cyberpunk-themed Excel file viewer and converter built with React, TypeScript,
 # Start the application
 docker-compose up -d
 
-# Access at http://localhost:3000
+# Access at http://localhost:8080
 ```
 
 #### Development
@@ -175,7 +175,7 @@ docker-compose -f docker-compose.dev.yml logs -f
 docker-compose build
 docker-compose up -d
 
-# Application will be available at http://localhost:3000
+# Application will be available at http://localhost:8080
 ```
 
 ### Manual Deployment
@@ -194,7 +194,7 @@ npm run build
 - `VITE_HOST`: Set to '0.0.0.0' for Docker development
 
 ### Docker Ports
-- **Production**: 3000 (nginx)
+- **Production**: 8080 (nginx)
 - **Development**: 5173 (Vite dev server)
 
 ### Nginx Configuration
