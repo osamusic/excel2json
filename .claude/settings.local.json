@@ -9,7 +9,8 @@
       "Bash(git add:*)",
       "Bash(npm uninstall:*)",
       "Bash(make:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(docker compose:*)"
     ],
     "deny": []
   }
