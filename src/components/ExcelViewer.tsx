@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as ExcelJS from 'exceljs';
+import TinySegmenter from 'tiny-segmenter';
 import { Upload, Download, FileSpreadsheet, X, ChevronDown, ChevronRight, Tags } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,16 +32,44 @@ const ExcelViewer: React.FC = () => {
 
   // Load saved data from localStorage on mount
   useEffect(() => {
-    const savedFiles = localStorage.getItem('excel2json-files');
-    if (savedFiles) {
-      setFiles(JSON.parse(savedFiles));
+    try {
+      const savedFiles = localStorage.getItem('excel2json-files');
+      if (savedFiles) {
+        const parsedFiles = JSON.parse(savedFiles);
+        console.log('Loaded files from localStorage:', parsedFiles);
+        setFiles(parsedFiles);
+        
+        // 最初のファイルを自動選択
+        if (parsedFiles.length > 0 && !selectedFile) {
+          const firstFile = parsedFiles[0];
+          setSelectedFile(firstFile.id);
+          const firstSheet = Object.keys(firstFile.sheets)[0];
+          if (firstSheet) {
+            setSelectedSheet(firstSheet);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading files from localStorage:', error);
+      // 破損したデータをクリア
+      localStorage.removeItem('excel2json-files');
     }
-  }, []);
+  }, [selectedFile]);
 
   // Save files to localStorage whenever they change
   useEffect(() => {
-    if (files.length > 0) {
-      localStorage.setItem('excel2json-files', JSON.stringify(files));
+    try {
+      if (files.length > 0) {
+        console.log('Saving files to localStorage:', files);
+        localStorage.setItem('excel2json-files', JSON.stringify(files));
+      } else {
+        // ファイルがない場合はlocalStorageをクリア
+        localStorage.removeItem('excel2json-files');
+      }
+    } catch (error) {
+      console.error('Error saving files to localStorage:', error);
+      // ストレージ容量が不足している可能性
+      alert('データ保存に失敗しました。ファイルサイズが大きすぎる可能性があります。');
     }
   }, [files]);
 
@@ -137,7 +166,16 @@ const ExcelViewer: React.FC = () => {
         sheets
       };
 
-      setFiles([...files, newFile]);
+      console.log('Processing new file:', {
+        name: newFile.name,
+        id: newFile.id,
+        sheetsCount: Object.keys(newFile.sheets).length,
+        totalRows: Object.values(newFile.sheets).reduce((sum, sheet) => sum + sheet.length, 0)
+      });
+
+      const updatedFiles = [...files, newFile];
+      setFiles(updatedFiles);
+      
       if (!selectedFile) {
         setSelectedFile(newFile.id);
         setSelectedSheet(Object.keys(sheets)[0]);
@@ -157,52 +195,61 @@ const ExcelViewer: React.FC = () => {
   const extractTags = (text: string): string[] => {
     if (!text || typeof text !== 'string') return [];
     
+    const segmenter = new TinySegmenter();
     const tags: string[] = [];
     
     // 日本語文字の判定
     const hasJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(text);
     
     if (hasJapanese) {
-      // 日本語テキストの処理
+      // TinySegmenterで分かち書き
+      const segments = segmenter.segment(text);
       
-      // 1. 英数字部分を先に抽出
-      const alphanumericParts = text.match(/[a-zA-Z0-9][a-zA-Z0-9\-_]*[a-zA-Z0-9]|[a-zA-Z0-9]/g) || [];
+      // 除外する語（助詞、接続詞、感動詞など）
+      const stopWords = new Set([
+        // 助詞
+        'は', 'が', 'を', 'に', 'で', 'と', 'の', 'へ', 'から', 'まで', 'より', 'や', 'か', 'も', 'こそ', 'さえ', 'しか', 'だけ', 'ばかり', 'など', 'なり', 'やら', 'きり', 'っきり',
+        // 接続詞
+        'そして', 'それで', 'しかし', 'でも', 'だが', 'ところが', 'けれど', 'けれども', 'なのに', 'だから', 'そこで', 'すると', 'それなら', 'また', 'さらに', 'つまり', 'すなわち', 'たとえば', 'ただし', 'もし', 'もしも',
+        // 副詞
+        'とても', 'すごく', 'かなり', 'ちょっと', '少し', 'もう', 'まだ', 'すでに', 'いつも', 'たまに', 'よく', 'あまり', 'ぜんぜん', 'きっと', 'たぶん', 'もしかして',
+        // 動詞活用
+        'です', 'である', 'ます', 'した', 'して', 'される', 'られる', 'せる', 'させる', 'れる', 'られ', 'ない', 'なく', 'ぬ', 'ん',
+        // 形容詞活用
+        'ない', 'なく', 'なし', 'い', 'く', 'かっ', 'け', 'さ',
+        // 指示詞・代名詞
+        'これ', 'それ', 'あれ', 'どれ', 'この', 'その', 'あの', 'どの', 'ここ', 'そこ', 'あそこ', 'どこ', 'こちら', 'そちら', 'あちら', 'どちら',
+        // 接頭辞・接尾辞
+        'お', 'ご', 'み', 'さん', 'ちゃん', 'くん', '様', 'さま', 'たち', 'ども',
+        // 感動詞
+        'あ', 'い', 'う', 'え', 'お', 'はい', 'いいえ', 'うん', 'ううん', 'ええ', 'へえ', 'ほお', 'まあ', 'おお', 'わあ',
+        // 疑問詞
+        '何', 'なに', 'なん', 'いつ', 'どう', 'なぜ', 'どうして', 'いくら', 'いくつ', 'どんな',
+        // 記号・数詞
+        '、', '。', '！', '？', '…', '・', '※', '＊', '×', '○', '△', '□', '◇', '☆', '★',
+        // 時間・数量表現
+        '時', '分', '秒', '年', '月', '日', '週', '回', '個', '本', '枚', '台', '人', '名', '件', '点'
+      ]);
+      
+      segments.forEach(segment => {
+        const cleanSegment = segment.trim();
+        
+        if (
+          cleanSegment.length >= 2 && // 2文字以上
+          !stopWords.has(cleanSegment) && // ストップワードでない
+          !/^\d+$/.test(cleanSegment) && // 数字のみでない
+          !/^[!-/:-@\[-`{-~]+$/.test(cleanSegment) && // 記号のみでない
+          !/^[ぁぃぅぇぉゃゅょっ]+$/.test(cleanSegment) // 小文字ひらがなのみでない
+        ) {
+          tags.push(cleanSegment);
+        }
+      });
+      
+      // 英数字部分も追加で抽出
+      const alphanumericParts = text.match(/[a-zA-Z0-9][a-zA-Z0-9\-_]*[a-zA-Z0-9]|[a-zA-Z]{2,}/g) || [];
       alphanumericParts.forEach(part => {
         if (part.length >= 2 && !/^\d+$/.test(part)) {
           tags.push(part.toLowerCase());
-        }
-      });
-      
-      // 2. カタカナ語を抽出
-      const katakanaWords = text.match(/[\u30A0-\u30FF][ャュョァィゥェォ\u30A0-\u30FF]*[\u30A0-\u30FF]/g) || [];
-      katakanaWords.forEach(word => {
-        if (word.length >= 2) {
-          tags.push(word);
-        }
-      });
-      
-      // 3. ひらがな語を抽出（助詞などを除外）
-      const hiraganaWords = text.match(/[\u3040-\u309F]{2,}/g) || [];
-      const commonParticles = ['から', 'まで', 'です', 'である', 'ます', 'した', 'して', 'される', 'という', 'として', 'による', 'について', 'において', 'に対して'];
-      hiraganaWords.forEach(word => {
-        if (word.length >= 2 && !commonParticles.includes(word)) {
-          tags.push(word);
-        }
-      });
-      
-      // 4. 漢字熟語を抽出
-      const kanjiWords = text.match(/[\u4E00-\u9FAF][\u4E00-\u9FAF\u3040-\u309F]*[\u4E00-\u9FAF]/g) || [];
-      kanjiWords.forEach(word => {
-        if (word.length >= 2 && word.length <= 6) {
-          tags.push(word);
-        }
-      });
-      
-      // 5. 混在語（漢字+ひらがな）を抽出
-      const mixedWords = text.match(/[\u4E00-\u9FAF\u3040-\u309F]{2,6}/g) || [];
-      mixedWords.forEach(word => {
-        if (word.length >= 2 && !/^[\u3040-\u309F]+$/.test(word)) {
-          tags.push(word);
         }
       });
       
@@ -217,8 +264,8 @@ const ExcelViewer: React.FC = () => {
       });
     }
     
-    // 数値のみのタグを除外
-    return tags.filter(tag => 
+    // 重複を除去し、フィルタリング
+    return [...new Set(tags)].filter(tag => 
       tag.trim().length > 0 && 
       !/^\d+$/.test(tag) &&
       !/^[!@#$%^&*(),.?":{}|<>]+$/.test(tag)
@@ -484,6 +531,17 @@ const ExcelViewer: React.FC = () => {
     );
   };
 
+  // デバッグ情報をコンソールに出力
+  useEffect(() => {
+    console.log('Component state:', {
+      filesCount: files.length,
+      selectedFile,
+      selectedSheet,
+      currentDataRows: getCurrentData.length,
+      allTagsCount: allTags.length
+    });
+  }, [files, selectedFile, selectedSheet, getCurrentData, allTags]);
+
   return (
     <div className="min-h-screen p-4">
       <div className="max-w-7xl mx-auto">
@@ -581,6 +639,18 @@ const ExcelViewer: React.FC = () => {
                     </button>
                   </div>
                 ))}
+                <button
+                  onClick={() => {
+                    setFiles([]);
+                    setSelectedFile('');
+                    setSelectedSheet('');
+                    localStorage.removeItem('excel2json-files');
+                    console.log('All files cleared from memory and localStorage');
+                  }}
+                  className="cyber-clear-button px-3 py-1 rounded text-xs font-mono"
+                >
+                  Clear All
+                </button>
               </div>
             )}
 
