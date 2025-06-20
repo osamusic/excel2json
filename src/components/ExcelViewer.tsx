@@ -60,7 +60,7 @@ const ExcelViewer: React.FC = () => {
       // 破損したデータをクリア
       localStorage.removeItem('excel2json-files');
     }
-  }, [selectedFile]);
+  }, []); // Remove selectedFile from dependency array to prevent infinite loop
 
   // Save files to localStorage whenever they change
   useEffect(() => {
@@ -658,7 +658,8 @@ const ExcelViewer: React.FC = () => {
       selectedFile,
       selectedSheet,
       currentDataRows: getCurrentData.length,
-      allTagsCount: allTags.length
+      allTagsCount: allTags.length,
+      availableSheets: selectedFile ? Object.keys(files.find(f => f.id === selectedFile)?.sheets || {}) : []
     });
   }, [files, selectedFile, selectedSheet, getCurrentData, allTags]);
 
@@ -737,13 +738,19 @@ const ExcelViewer: React.FC = () => {
                     <select
                       value={selectedFile}
                       onChange={(e) => {
+                        console.log('File selection changed:', e.target.value);
                         setSelectedFile(e.target.value);
                         const file = files.find(f => f.id === e.target.value);
                         if (file) {
-                          setSelectedSheet(Object.keys(file.sheets)[0]);
+                          const sheets = Object.keys(file.sheets);
+                          console.log('Available sheets:', sheets);
+                          if (sheets.length > 0) {
+                            setSelectedSheet(sheets[0]);
+                            console.log('Auto-selected sheet:', sheets[0]);
+                          }
                         }
                       }}
-      className="cyber-input w-full px-3 py-2 rounded bg-cyber-terminal"
+                      className="cyber-input w-full px-3 py-2 rounded bg-cyber-terminal"
                     >
                       {files.map(file => (
                         <option key={file.id} value={file.id}>
@@ -760,8 +767,11 @@ const ExcelViewer: React.FC = () => {
                       </label>
                       <select
                         value={selectedSheet}
-                        onChange={(e) => setSelectedSheet(e.target.value)}
-        className="cyber-input w-full px-3 py-2 rounded bg-cyber-terminal"
+                        onChange={(e) => {
+                          console.log('Sheet selection changed:', e.target.value);
+                          setSelectedSheet(e.target.value);
+                        }}
+                        className="cyber-input w-full px-3 py-2 rounded bg-cyber-terminal"
                       >
                         {Object.keys(files.find(f => f.id === selectedFile)?.sheets || {}).map(sheet => (
                           <option key={sheet} value={sheet}>
@@ -806,7 +816,7 @@ const ExcelViewer: React.FC = () => {
               </div>
             )}
 
-            {getCurrentData.length > 0 && (
+            {selectedFile && selectedSheet && getCurrentData.length > 0 && (
               <>
                 {renderNormalizationStatus()}
                 <div className="mb-6 cyber-terminal p-6 rounded-lg">
