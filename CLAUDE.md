@@ -12,12 +12,14 @@ CPG-Local is a React-based Excel viewer application that provides a web interfac
 - **Build Tool**: Vite 6.3.5 with hot module replacement
 - **Styling**: Tailwind CSS 4.1.10 with custom shadcn/ui-style components
 - **UI Components**: Radix UI primitives with custom implementations
-- **Excel Processing**: xlsx library (SheetJS) for reading/writing Excel files
+- **Excel Processing**: ExcelJS 4.4.0 (secure alternative to xlsx) for reading/writing Excel files
+- **Containerization**: Docker + Docker Compose with nginx for production
 - **Icons**: Lucide React
 - **State Management**: React hooks (no external state management library)
 
 ## Development Commands
 
+### Local Development
 ```bash
 # Install dependencies
 npm install
@@ -33,6 +35,35 @@ npm run lint
 
 # Preview production build locally
 npm run preview
+```
+
+### Docker Development (Recommended)
+```bash
+# Start development environment with hot reload
+make dev
+
+# Start production environment
+make up
+
+# View logs
+make logs
+
+# Clean up containers
+make clean
+
+# Show all available commands
+make help
+```
+
+### Manual Docker Commands
+```bash
+# Development
+docker-compose -f docker-compose.dev.yml up -d
+docker-compose -f docker-compose.dev.yml down
+
+# Production
+docker-compose up -d
+docker-compose down
 ```
 
 ## Application Architecture

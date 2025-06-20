@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  excel2json:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: excel2json-app
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "com.docker.compose.project=excel2json"
+      - "description=Excel2JSON cyberpunk-themed Excel viewer"
+    networks:
+      - excel2json-network
+
+  # Optional: Add reverse proxy with SSL termination
+  # nginx-proxy:
+  #   image: nginxproxy/nginx-proxy:alpine
+  #   container_name: excel2json-proxy
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - /var/run/docker.sock:/tmp/docker.sock:ro
+  #     - ./certs:/etc/nginx/certs:ro
+  #   environment:
+  #     - DEFAULT_HOST=excel2json.local
+  #   networks:
+  #     - excel2json-network
+
+networks:
+  excel2json-network:
+    driver: bridge
+    name: excel2json-network
