@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import * as XLSX from 'xlsx';
+import React, { useState, useEffect, useMemo } from 'react';
+import * as ExcelJS from 'exceljs';
 import { Upload, Download, FileSpreadsheet, X, ChevronDown, ChevronRight, Tags } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,7 +31,7 @@ const ExcelViewer: React.FC = () => {
 
   // Load saved data from localStorage on mount
   useEffect(() => {
-    const savedFiles = localStorage.getItem('cpg-local-files');
+    const savedFiles = localStorage.getItem('excel2json-files');
     if (savedFiles) {
       setFiles(JSON.parse(savedFiles));
     }
@@ -40,7 +40,7 @@ const ExcelViewer: React.FC = () => {
   // Save files to localStorage whenever they change
   useEffect(() => {
     if (files.length > 0) {
-      localStorage.setItem('cpg-local-files', JSON.stringify(files));
+      localStorage.setItem('excel2json-files', JSON.stringify(files));
     }
   }, [files]);
 
@@ -48,19 +48,35 @@ const ExcelViewer: React.FC = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const data = new Uint8Array(e.target?.result as ArrayBuffer);
-      const workbook = XLSX.read(data, { type: 'array' });
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const arrayBuffer = await file.arrayBuffer();
+      await workbook.xlsx.load(arrayBuffer);
       
       const sheets: { [key: string]: ExcelData[] } = {};
-      workbook.SheetNames.forEach(sheetName => {
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      
+      workbook.worksheets.forEach((worksheet) => {
+        const sheetName = worksheet.name;
+        const jsonData: any[] = [];
         
-        if (jsonData.length > 0) {
-          const headers = jsonData[0] as string[];
-          const rows = jsonData.slice(1).map((row: any) => {
+        worksheet.eachRow((row, rowNumber) => {
+          if (rowNumber === 1) return; // Skip header row for now
+          const rowData: any[] = [];
+          row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+            rowData[colNumber - 1] = cell.value;
+          });
+          jsonData.push(rowData);
+        });
+
+        // Get headers from first row
+        const headers: string[] = [];
+        const headerRow = worksheet.getRow(1);
+        headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+          headers[colNumber - 1] = cell.value?.toString() || `Column ${colNumber}`;
+        });
+
+        if (headers.length > 0 && jsonData.length > 0) {
+          const rows = jsonData.map((row: any[]) => {
             const obj: ExcelData = {};
             headers.forEach((header, index) => {
               obj[header] = row[index] || '';
@@ -82,8 +98,10 @@ const ExcelViewer: React.FC = () => {
         setSelectedFile(newFile.id);
         setSelectedSheet(Object.keys(sheets)[0]);
       }
-    };
-    reader.readAsArrayBuffer(file);
+    } catch (error) {
+      console.error('Error reading Excel file:', error);
+      alert('Error reading Excel file. Please make sure it is a valid Excel file.');
+    }
   };
 
   const getCurrentData = useMemo(() => {
@@ -196,27 +214,48 @@ const ExcelViewer: React.FC = () => {
     return result;
   };
 
-  const hasHighlight = (row: ExcelData) => {
-    // Check for search term matches
-    const hasSearchMatch = searchTerm && Object.values(row).some(value =>
-      String(value).toLowerCase().includes(searchTerm.toLowerCase())
-    );
 
-    // Check for tag matches
-    const hasTagMatch = selectedTags.size > 0 && Array.from(selectedTags).some(tag =>
-      Object.values(row).some(value =>
-        String(value).toLowerCase().includes(tag)
-      )
-    );
+  const exportToExcel = async () => {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet(selectedSheet || 'Sheet1');
 
-    return hasSearchMatch || hasTagMatch;
-  };
+      if (filteredData.length > 0) {
+        // Add headers
+        const headers = Object.keys(filteredData[0]);
+        worksheet.addRow(headers);
 
-  const exportToExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(filteredData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, selectedSheet || 'Sheet1');
-    XLSX.writeFile(wb, `exported_${selectedFile}_${Date.now()}.xlsx`);
+        // Add data rows
+        filteredData.forEach(row => {
+          const values = headers.map(header => row[header]);
+          worksheet.addRow(values);
+        });
+
+        // Style the header row
+        const headerRow = worksheet.getRow(1);
+        headerRow.font = { bold: true };
+        headerRow.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF00FFFF' } // Cyan color
+        };
+      }
+
+      // Generate buffer and download
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `exported_${selectedFile}_${Date.now()}.xlsx`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      alert('Error exporting to Excel file.');
+    }
   };
 
   const exportToJson = () => {
@@ -272,7 +311,6 @@ const ExcelViewer: React.FC = () => {
         String(value).toLowerCase().includes(tag)
       )
     );
-    const rowHasHighlight = hasSearchMatch || hasTagMatch;
 
     let additionalClasses = "";
     if (hasSearchMatch && hasTagMatch) {

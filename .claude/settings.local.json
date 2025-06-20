@@ -6,7 +6,8 @@
       "Bash(killall:*)",
       "Bash(true)",
       "Bash(npm install:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(npm uninstall:*)"
     ],
     "deny": []
   }
