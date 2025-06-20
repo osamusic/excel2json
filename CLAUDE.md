@@ -40,30 +40,22 @@ npm run preview
 ### Docker Development (Recommended)
 ```bash
 # Start development environment with hot reload
-make dev
+docker-compose -f docker-compose.dev.yml up -d
 
 # Start production environment
-make up
+docker-compose up -d
 
 # View logs
-make logs
+docker-compose logs -f
+docker-compose -f docker-compose.dev.yml logs -f
 
-# Clean up containers
-make clean
-
-# Show all available commands
-make help
-```
-
-### Manual Docker Commands
-```bash
-# Development
-docker-compose -f docker-compose.dev.yml up -d
+# Stop containers
+docker-compose down
 docker-compose -f docker-compose.dev.yml down
 
-# Production
-docker-compose up -d
-docker-compose down
+# Clean up containers and images
+docker-compose down --rmi all --volumes --remove-orphans
+docker-compose -f docker-compose.dev.yml down --rmi all --volumes --remove-orphans
 ```
 
 ## Application Architecture

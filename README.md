@@ -20,9 +20,6 @@ A cyberpunk-themed Excel file viewer and converter built with React, TypeScript,
 #### Production
 ```bash
 # Start the application
-make up
-
-# Or manually
 docker-compose up -d
 
 # Access at http://localhost:3000
@@ -31,9 +28,6 @@ docker-compose up -d
 #### Development
 ```bash
 # Start development environment
-make dev
-
-# Or manually
 docker-compose -f docker-compose.dev.yml up -d
 
 # Access at http://localhost:5173
@@ -57,28 +51,52 @@ npm run preview
 
 ## Docker Commands
 
-### Make Commands (Recommended)
+### Production Commands
 ```bash
-make help          # Show all available commands
-make build         # Build production image
-make up            # Start production container
-make down          # Stop production container
-make logs          # View logs
-make dev           # Start development environment
-make dev-logs      # View development logs
-make clean         # Clean up containers and images
-```
-
-### Manual Docker Commands
-```bash
-# Production
+# Build and start production container
 docker-compose build
 docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop container
 docker-compose down
 
-# Development
+# Restart container
+docker-compose restart
+
+# Remove containers and images
+docker-compose down --rmi all --volumes --remove-orphans
+```
+
+### Development Commands
+```bash
+# Build and start development environment
+docker-compose -f docker-compose.dev.yml build
 docker-compose -f docker-compose.dev.yml up -d
+
+# View development logs
+docker-compose -f docker-compose.dev.yml logs -f
+
+# Stop development environment
 docker-compose -f docker-compose.dev.yml down
+
+# Open shell in development container
+docker-compose -f docker-compose.dev.yml exec excel2json-dev sh
+
+# Remove development containers and images
+docker-compose -f docker-compose.dev.yml down --rmi all --volumes --remove-orphans
+```
+
+### Utility Commands
+```bash
+# View container status
+docker ps -a --filter "label=com.docker.compose.project=excel2json"
+
+# Clean up Docker system
+docker system prune -f
+docker volume prune -f
 ```
 
 ## Technology Stack
@@ -140,13 +158,13 @@ npx tsc --noEmit
 ### Docker Development
 ```bash
 # Start development container with hot reload
-make dev
+docker-compose -f docker-compose.dev.yml up -d
 
 # Open shell in development container
-make dev-shell
+docker-compose -f docker-compose.dev.yml exec excel2json-dev sh
 
 # View development logs
-make dev-logs
+docker-compose -f docker-compose.dev.yml logs -f
 ```
 
 ## Production Deployment
@@ -154,8 +172,8 @@ make dev-logs
 ### Docker Production
 ```bash
 # Build and start production container
-make build
-make up
+docker-compose build
+docker-compose up -d
 
 # Application will be available at http://localhost:3000
 ```
@@ -191,8 +209,8 @@ Custom nginx.conf includes:
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Test with Docker: `make dev`
-5. Build production: `make build && make up`
+4. Test with Docker: `docker-compose -f docker-compose.dev.yml up -d`
+5. Build production: `docker-compose build && docker-compose up -d`
 6. Submit a pull request
 
 ## License
