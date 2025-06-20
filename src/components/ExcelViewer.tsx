@@ -63,7 +63,32 @@ const ExcelViewer: React.FC = () => {
           if (rowNumber === 1) return; // Skip header row for now
           const rowData: any[] = [];
           row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-            rowData[colNumber - 1] = cell.value;
+            let cellValue = cell.value;
+            
+            // Handle different cell value types
+            if (cellValue && typeof cellValue === 'object') {
+              if ('text' in cellValue && cellValue.text) {
+                // Rich text object
+                cellValue = cellValue.text;
+              } else if ('result' in cellValue && cellValue.result !== undefined) {
+                // Formula result
+                cellValue = cellValue.result;
+              } else if ('hyperlink' in cellValue && cellValue.hyperlink) {
+                // Hyperlink object
+                cellValue = cellValue.hyperlink;
+              } else if (cellValue instanceof Date) {
+                // Date object
+                cellValue = cellValue.toISOString();
+              } else if (cellValue.toString) {
+                // Other objects with toString method
+                cellValue = cellValue.toString();
+              } else {
+                // Fallback: stringify the object
+                cellValue = JSON.stringify(cellValue);
+              }
+            }
+            
+            rowData[colNumber - 1] = cellValue;
           });
           jsonData.push(rowData);
         });
@@ -72,7 +97,26 @@ const ExcelViewer: React.FC = () => {
         const headers: string[] = [];
         const headerRow = worksheet.getRow(1);
         headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-          headers[colNumber - 1] = cell.value?.toString() || `Column ${colNumber}`;
+          let headerValue = cell.value;
+          
+          // Handle different header value types
+          if (headerValue && typeof headerValue === 'object') {
+            if ('text' in headerValue && headerValue.text) {
+              headerValue = headerValue.text;
+            } else if ('result' in headerValue && headerValue.result !== undefined) {
+              headerValue = headerValue.result;
+            } else if ('hyperlink' in headerValue && headerValue.hyperlink) {
+              headerValue = headerValue.hyperlink;
+            } else if (headerValue instanceof Date) {
+              headerValue = headerValue.toISOString();
+            } else if (headerValue.toString) {
+              headerValue = headerValue.toString();
+            } else {
+              headerValue = JSON.stringify(headerValue);
+            }
+          }
+          
+          headers[colNumber - 1] = headerValue?.toString() || `Column ${colNumber}`;
         });
 
         if (headers.length > 0 && jsonData.length > 0) {
@@ -110,20 +154,96 @@ const ExcelViewer: React.FC = () => {
     return file.sheets[selectedSheet] || [];
   }, [files, selectedFile, selectedSheet]);
 
+  const extractTags = (text: string): string[] => {
+    if (!text || typeof text !== 'string') return [];
+    
+    const tags: string[] = [];
+    
+    // 日本語文字の判定
+    const hasJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(text);
+    
+    if (hasJapanese) {
+      // 日本語テキストの処理
+      
+      // 1. 英数字部分を先に抽出
+      const alphanumericParts = text.match(/[a-zA-Z0-9][a-zA-Z0-9\-_]*[a-zA-Z0-9]|[a-zA-Z0-9]/g) || [];
+      alphanumericParts.forEach(part => {
+        if (part.length >= 2 && !/^\d+$/.test(part)) {
+          tags.push(part.toLowerCase());
+        }
+      });
+      
+      // 2. カタカナ語を抽出
+      const katakanaWords = text.match(/[\u30A0-\u30FF][ャュョァィゥェォ\u30A0-\u30FF]*[\u30A0-\u30FF]/g) || [];
+      katakanaWords.forEach(word => {
+        if (word.length >= 2) {
+          tags.push(word);
+        }
+      });
+      
+      // 3. ひらがな語を抽出（助詞などを除外）
+      const hiraganaWords = text.match(/[\u3040-\u309F]{2,}/g) || [];
+      const commonParticles = ['から', 'まで', 'です', 'である', 'ます', 'した', 'して', 'される', 'という', 'として', 'による', 'について', 'において', 'に対して'];
+      hiraganaWords.forEach(word => {
+        if (word.length >= 2 && !commonParticles.includes(word)) {
+          tags.push(word);
+        }
+      });
+      
+      // 4. 漢字熟語を抽出
+      const kanjiWords = text.match(/[\u4E00-\u9FAF][\u4E00-\u9FAF\u3040-\u309F]*[\u4E00-\u9FAF]/g) || [];
+      kanjiWords.forEach(word => {
+        if (word.length >= 2 && word.length <= 6) {
+          tags.push(word);
+        }
+      });
+      
+      // 5. 混在語（漢字+ひらがな）を抽出
+      const mixedWords = text.match(/[\u4E00-\u9FAF\u3040-\u309F]{2,6}/g) || [];
+      mixedWords.forEach(word => {
+        if (word.length >= 2 && !/^[\u3040-\u309F]+$/.test(word)) {
+          tags.push(word);
+        }
+      });
+      
+    } else {
+      // 英語テキストの処理
+      const words = text.split(/[\s,;。、！？\-_\(\)\[\]{}]+/);
+      words.forEach(word => {
+        const cleanWord = word.replace(/[^\w]/g, '');
+        if (cleanWord.length >= 3 && !/^\d+$/.test(cleanWord)) {
+          tags.push(cleanWord.toLowerCase());
+        }
+      });
+    }
+    
+    // 数値のみのタグを除外
+    return tags.filter(tag => 
+      tag.trim().length > 0 && 
+      !/^\d+$/.test(tag) &&
+      !/^[!@#$%^&*(),.?":{}|<>]+$/.test(tag)
+    );
+  };
+
   const allTags = useMemo(() => {
-    const tags = new Set<string>();
+    const tagFrequency = new Map<string, number>();
+    
     getCurrentData.forEach(row => {
       Object.values(row).forEach(value => {
-        if (typeof value === 'string' && value) {
-          value.split(/[\s,;]+/).forEach(word => {
-            if (word.length > 3) {
-              tags.add(word.toLowerCase());
-            }
+        if (value) {
+          const extractedTags = extractTags(String(value));
+          extractedTags.forEach(tag => {
+            tagFrequency.set(tag, (tagFrequency.get(tag) || 0) + 1);
           });
         }
       });
     });
-    return Array.from(tags).slice(0, 50); // Limit to top 50 tags
+    
+    // 頻度の高い順にソートし、上位50個を返す
+    return Array.from(tagFrequency.entries())
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 50)
+      .map(([tag]) => tag);
   }, [getCurrentData]);
 
   const filteredData = useMemo(() => {
@@ -170,8 +290,25 @@ const ExcelViewer: React.FC = () => {
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
-  const highlightText = (text: string) => {
-    const textStr = String(text);
+  const highlightText = (text: any) => {
+    // Handle object values that might still appear
+    let textStr: string;
+    if (text && typeof text === 'object') {
+      if ('text' in text && text.text) {
+        textStr = String(text.text);
+      } else if ('result' in text && text.result !== undefined) {
+        textStr = String(text.result);
+      } else if ('hyperlink' in text && text.hyperlink) {
+        textStr = String(text.hyperlink);
+      } else if (text instanceof Date) {
+        textStr = text.toISOString();
+      } else {
+        textStr = JSON.stringify(text);
+      }
+    } else {
+      textStr = String(text || '');
+    }
+    
     let result: React.ReactNode[] = [textStr];
 
     // Search term highlighting
@@ -325,17 +462,20 @@ const ExcelViewer: React.FC = () => {
       <div 
         key={index} 
         className={cn(
-          "mb-4 p-4 rounded-lg transition-all duration-300",
+          "mb-4 p-6 rounded-lg transition-all duration-300 relative",
           "cyber-card data-row",
           additionalClasses
         )}
       >
+        <div className="data-row-number">
+          #{index + 1}
+        </div>
         {Object.entries(row).map(([key, value]) => (
-          <div key={key} className="mb-2">
-            <span className="font-semibold cyber-text text-sm">
+          <div key={key} className="data-field">
+            <span className="data-field-label">
               {key}:
             </span>
-            <span className="ml-2 text-foreground">
+            <span className="data-field-value">
               {highlightText(String(value))}
             </span>
           </div>
