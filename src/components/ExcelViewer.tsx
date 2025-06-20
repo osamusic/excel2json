@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as ExcelJS from 'exceljs';
 import TinySegmenter from 'tiny-segmenter';
-import { Upload, Download, FileSpreadsheet, X, ChevronDown, ChevronRight, Tags } from 'lucide-react';
+import { Upload, Download, FileSpreadsheet, X, ChevronDown, ChevronRight, Tags, Settings, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { ExcelNormalizer, type NormalizationResult } from '@/services/excel-normalizer';
 
 interface ExcelData {
   [key: string]: any;
@@ -16,6 +17,9 @@ interface ProcessedFile {
   name: string;
   sheets: {
     [sheetName: string]: ExcelData[];
+  };
+  normalizationResults?: {
+    [sheetName: string]: NormalizationResult;
   };
 }
 
@@ -29,6 +33,8 @@ const ExcelViewer: React.FC = () => {
   const [primaryKeyColumn, setPrimaryKeyColumn] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(50);
+  const [normalizationEnabled, setNormalizationEnabled] = useState<boolean>(true);
+  const [showNormalizationDetails, setShowNormalizationDetails] = useState<boolean>(false);
 
   // Load saved data from localStorage on mount
   useEffect(() => {
@@ -83,87 +89,110 @@ const ExcelViewer: React.FC = () => {
       await workbook.xlsx.load(arrayBuffer);
       
       const sheets: { [key: string]: ExcelData[] } = {};
+      let normalizationResults: { [key: string]: NormalizationResult } = {};
+
+      // Normalize entire workbook if enabled
+      if (normalizationEnabled) {
+        try {
+          normalizationResults = await ExcelNormalizer.normalizeWorkbook(workbook, {
+            fillEmptyIdColumns: true,
+            preserveHierarchy: true
+          });
+          console.log('Normalization results:', normalizationResults);
+        } catch (error) {
+          console.error('Normalization failed:', error);
+          // Continue with standard processing
+        }
+      }
       
       workbook.worksheets.forEach((worksheet) => {
         const sheetName = worksheet.name;
-        const jsonData: any[] = [];
         
-        worksheet.eachRow((row, rowNumber) => {
-          if (rowNumber === 1) return; // Skip header row for now
-          const rowData: any[] = [];
-          row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-            let cellValue = cell.value;
+        // Use normalized data if available and successful
+        if (normalizationResults[sheetName]?.success) {
+          sheets[sheetName] = normalizationResults[sheetName].data;
+        } else {
+          // Fallback to original processing method
+          const jsonData: any[] = [];
+          
+          worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) return; // Skip header row for now
+            const rowData: any[] = [];
+            row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+              let cellValue = cell.value;
+              
+              // Handle different cell value types
+              if (cellValue && typeof cellValue === 'object') {
+                if ('text' in cellValue && cellValue.text) {
+                  // Rich text object
+                  cellValue = cellValue.text;
+                } else if ('result' in cellValue && cellValue.result !== undefined) {
+                  // Formula result
+                  cellValue = cellValue.result;
+                } else if ('hyperlink' in cellValue && cellValue.hyperlink) {
+                  // Hyperlink object
+                  cellValue = cellValue.hyperlink;
+                } else if (cellValue instanceof Date) {
+                  // Date object
+                  cellValue = cellValue.toISOString();
+                } else if (cellValue.toString) {
+                  // Other objects with toString method
+                  cellValue = cellValue.toString();
+                } else {
+                  // Fallback: stringify the object
+                  cellValue = JSON.stringify(cellValue);
+                }
+              }
+              
+              rowData[colNumber - 1] = cellValue;
+            });
+            jsonData.push(rowData);
+          });
+
+          // Get headers from first row
+          const headers: string[] = [];
+          const headerRow = worksheet.getRow(1);
+          headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+            let headerValue = cell.value;
             
-            // Handle different cell value types
-            if (cellValue && typeof cellValue === 'object') {
-              if ('text' in cellValue && cellValue.text) {
-                // Rich text object
-                cellValue = cellValue.text;
-              } else if ('result' in cellValue && cellValue.result !== undefined) {
-                // Formula result
-                cellValue = cellValue.result;
-              } else if ('hyperlink' in cellValue && cellValue.hyperlink) {
-                // Hyperlink object
-                cellValue = cellValue.hyperlink;
-              } else if (cellValue instanceof Date) {
-                // Date object
-                cellValue = cellValue.toISOString();
-              } else if (cellValue.toString) {
-                // Other objects with toString method
-                cellValue = cellValue.toString();
+            // Handle different header value types
+            if (headerValue && typeof headerValue === 'object') {
+              if ('text' in headerValue && headerValue.text) {
+                headerValue = headerValue.text;
+              } else if ('result' in headerValue && headerValue.result !== undefined) {
+                headerValue = headerValue.result;
+              } else if ('hyperlink' in headerValue && headerValue.hyperlink) {
+                headerValue = headerValue.hyperlink;
+              } else if (headerValue instanceof Date) {
+                headerValue = headerValue.toISOString();
+              } else if (headerValue.toString) {
+                headerValue = headerValue.toString();
               } else {
-                // Fallback: stringify the object
-                cellValue = JSON.stringify(cellValue);
+                headerValue = JSON.stringify(headerValue);
               }
             }
             
-            rowData[colNumber - 1] = cellValue;
+            headers[colNumber - 1] = headerValue?.toString() || `Column ${colNumber}`;
           });
-          jsonData.push(rowData);
-        });
 
-        // Get headers from first row
-        const headers: string[] = [];
-        const headerRow = worksheet.getRow(1);
-        headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-          let headerValue = cell.value;
-          
-          // Handle different header value types
-          if (headerValue && typeof headerValue === 'object') {
-            if ('text' in headerValue && headerValue.text) {
-              headerValue = headerValue.text;
-            } else if ('result' in headerValue && headerValue.result !== undefined) {
-              headerValue = headerValue.result;
-            } else if ('hyperlink' in headerValue && headerValue.hyperlink) {
-              headerValue = headerValue.hyperlink;
-            } else if (headerValue instanceof Date) {
-              headerValue = headerValue.toISOString();
-            } else if (headerValue.toString) {
-              headerValue = headerValue.toString();
-            } else {
-              headerValue = JSON.stringify(headerValue);
-            }
-          }
-          
-          headers[colNumber - 1] = headerValue?.toString() || `Column ${colNumber}`;
-        });
-
-        if (headers.length > 0 && jsonData.length > 0) {
-          const rows = jsonData.map((row: any[]) => {
-            const obj: ExcelData = {};
-            headers.forEach((header, index) => {
-              obj[header] = row[index] || '';
+          if (headers.length > 0 && jsonData.length > 0) {
+            const rows = jsonData.map((row: any[]) => {
+              const obj: ExcelData = {};
+              headers.forEach((header, index) => {
+                obj[header] = row[index] || '';
+              });
+              return obj;
             });
-            return obj;
-          });
-          sheets[sheetName] = rows;
+            sheets[sheetName] = rows;
+          }
         }
       });
 
       const newFile: ProcessedFile = {
         id: Date.now().toString(),
         name: file.name,
-        sheets
+        sheets,
+        normalizationResults
       };
 
       console.log('Processing new file:', {
@@ -190,6 +219,12 @@ const ExcelViewer: React.FC = () => {
     const file = files.find(f => f.id === selectedFile);
     if (!file || !selectedSheet) return [];
     return file.sheets[selectedSheet] || [];
+  }, [files, selectedFile, selectedSheet]);
+
+  const getCurrentNormalizationResult = useMemo(() => {
+    const file = files.find(f => f.id === selectedFile);
+    if (!file || !selectedSheet || !file.normalizationResults) return null;
+    return file.normalizationResults[selectedSheet] || null;
   }, [files, selectedFile, selectedSheet]);
 
   const extractTags = (text: string): string[] => {
@@ -269,6 +304,91 @@ const ExcelViewer: React.FC = () => {
       tag.trim().length > 0 && 
       !/^\d+$/.test(tag) &&
       !/^[!@#$%^&*(),.?":{}|<>]+$/.test(tag)
+    );
+  };
+
+  const renderNormalizationStatus = () => {
+    const normResult = getCurrentNormalizationResult;
+    if (!normResult) return null;
+
+    const { success, originalRowCount, normalizedRowCount, warnings, errors } = normResult;
+    const efficiency = originalRowCount > 0 ? (normalizedRowCount / originalRowCount) * 100 : 0;
+
+    return (
+      <div className="mb-4 cyber-terminal p-4 rounded-lg">
+        <div className="flex items-center gap-2 mb-3">
+          <Settings className="w-4 h-4 cyber-glow" />
+          <span className="text-sm cyber-text font-mono font-bold">
+            DATA NORMALIZATION STATUS
+          </span>
+          <button
+            onClick={() => setShowNormalizationDetails(!showNormalizationDetails)}
+            className="ml-auto text-xs cyber-text hover:text-cyber-glow"
+          >
+            {showNormalizationDetails ? 'Hide Details' : 'Show Details'}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono">
+          <div className="cyber-border p-2 rounded">
+            <div className="text-cyber-glow font-bold">STATUS</div>
+            <div className={success ? "text-green-400" : "text-red-400"}>
+              {success ? (
+                <><CheckCircle className="w-3 h-3 inline mr-1" />SUCCESS</>
+              ) : (
+                <><AlertTriangle className="w-3 h-3 inline mr-1" />FAILED</>
+              )}
+            </div>
+          </div>
+
+          <div className="cyber-border p-2 rounded">
+            <div className="text-cyber-glow font-bold">EFFICIENCY</div>
+            <div className={efficiency >= 80 ? "text-green-400" : efficiency >= 50 ? "text-yellow-400" : "text-red-400"}>
+              {efficiency.toFixed(1)}%
+            </div>
+          </div>
+
+          <div className="cyber-border p-2 rounded">
+            <div className="text-cyber-glow font-bold">ROWS</div>
+            <div className="text-foreground">
+              {normalizedRowCount}/{originalRowCount}
+            </div>
+          </div>
+
+          <div className="cyber-border p-2 rounded">
+            <div className="text-cyber-glow font-bold">ISSUES</div>
+            <div className="text-foreground">
+              {warnings.length + errors.length}
+            </div>
+          </div>
+        </div>
+
+        {showNormalizationDetails && (warnings.length > 0 || errors.length > 0) && (
+          <div className="mt-4 space-y-2">
+            {warnings.length > 0 && (
+              <div className="cyber-border p-3 rounded">
+                <div className="text-yellow-400 font-bold text-xs mb-2">WARNINGS:</div>
+                {warnings.map((warning, index) => (
+                  <div key={index} className="text-xs text-yellow-300 font-mono">
+                    • {warning}
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {errors.length > 0 && (
+              <div className="cyber-border p-3 rounded">
+                <div className="text-red-400 font-bold text-xs mb-2">ERRORS:</div>
+                {errors.map((error, index) => (
+                  <div key={index} className="text-xs text-red-300 font-mono">
+                    • {error}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -576,6 +696,38 @@ const ExcelViewer: React.FC = () => {
                 </div>
               </div>
 
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-sm font-medium mb-2">
+                  Data Processing
+                </label>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={normalizationEnabled}
+                      onChange={(e) => setNormalizationEnabled(e.target.checked)}
+                      className="sr-only"
+                    />
+                    <div className={cn(
+                      "w-4 h-4 border-2 rounded transition-all duration-200",
+                      normalizationEnabled 
+                        ? "bg-cyber-glow border-cyber-glow" 
+                        : "border-cyber-glow/40"
+                    )}>
+                      {normalizationEnabled && (
+                        <CheckCircle className="w-full h-full text-black" />
+                      )}
+                    </div>
+                    <span className="text-sm cyber-text font-mono">
+                      Auto-Normalize Data
+                    </span>
+                  </label>
+                </div>
+                <div className="text-xs text-muted-foreground mt-1 font-mono">
+                  Cleans headers, fills hierarchical gaps, removes duplicates
+                </div>
+              </div>
+
               {files.length > 0 && (
                 <>
                   <div className="flex-1 min-w-[200px]">
@@ -656,6 +808,7 @@ const ExcelViewer: React.FC = () => {
 
             {getCurrentData.length > 0 && (
               <>
+                {renderNormalizationStatus()}
                 <div className="mb-6 cyber-terminal p-6 rounded-lg">
                   <div className="flex items-center justify-between gap-4 mb-4">
                     <div className="flex items-center gap-4">
